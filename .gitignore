@@ -3,7 +3,7 @@
 *.tmp
 .doc
 *.docx
-*.pdf
+*.pdfSG
 HELP.md
 .gradle
 build/
