@@ -41,9 +41,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDeniedException(org.springframework.security.access.AccessDeniedException ex) {
+        String message = (ex.getMessage() != null && !ex.getMessage().isBlank())
+                ? ex.getMessage()
+                : "Access Denied: You do not have permission to access this resource.";
         ApiResponse<Void> response = ApiResponse.<Void>builder()
                 .status(HttpStatus.FORBIDDEN.value())
-                .message("Access Denied: You do not have permission to access this resource.")
+                .message(message)
                 .build();
         return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
     }
@@ -61,7 +64,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleGlobalException(Exception ex) {
         ApiResponse<Void> response = ApiResponse.<Void>builder()
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                .message("An unexpected error occurred: " + ex.getMessage())
+                .message("An unexpected error occurred. Please try again later.")
                 .build();
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }

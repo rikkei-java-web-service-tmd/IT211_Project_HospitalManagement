@@ -40,6 +40,18 @@ CREATE TABLE IF NOT EXISTS medical_records (
     CONSTRAINT fk_medical_record_appointment FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS audit_log (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT,
+    username VARCHAR(100),
+    action VARCHAR(255) NOT NULL,
+    http_method VARCHAR(10),
+    endpoint VARCHAR(500),
+    status VARCHAR(50),
+    execution_time_ms BIGINT,
+    created_at DATETIME(6) NOT NULL
+);
+
 INSERT INTO users (username, password_hash, role, is_active) VALUES 
 ('admin1', '$2b$10$vzx1QDSGgPDa0Vanx0N68umoFL2lFsCOA8lAcZ30j03pMdw/HlIUK', 'ADMIN', TRUE),
 ('doctor1', '$2b$10$vzx1QDSGgPDa0Vanx0N68umoFL2lFsCOA8lAcZ30j03pMdw/HlIUK', 'DOCTOR', TRUE),
