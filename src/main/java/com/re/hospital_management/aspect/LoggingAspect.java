@@ -28,12 +28,21 @@ public class LoggingAspect {
 
     @Around("controllerPointcut() || servicePointcut()")
     public Object logAround(ProceedingJoinPoint joinPoint) throws Throwable {
+        long start = System.currentTimeMillis();
         if (log.isDebugEnabled()) {
             log.debug("Enter: {}.{}() with argument[s] = {}", joinPoint.getSignature().getDeclaringTypeName(),
                     joinPoint.getSignature().getName(), Arrays.toString(joinPoint.getArgs()));
         }
         try {
             Object result = joinPoint.proceed();
+            long timeTaken = System.currentTimeMillis() - start;
+            if (timeTaken > 2000) {
+                log.warn("Performance Warning: {}.{}() took {} ms (Slow Response)", joinPoint.getSignature().getDeclaringTypeName(),
+                        joinPoint.getSignature().getName(), timeTaken);
+            } else {
+                log.info("Response Time: {}.{}() took {} ms", joinPoint.getSignature().getDeclaringTypeName(),
+                        joinPoint.getSignature().getName(), timeTaken);
+            }
             if (log.isDebugEnabled()) {
                 log.debug("Exit: {}.{}() with result = {}", joinPoint.getSignature().getDeclaringTypeName(),
                         joinPoint.getSignature().getName(), result);

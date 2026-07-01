@@ -33,4 +33,37 @@ public class MedicalRecordController {
                 
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
+
+    @GetMapping("/patient/{patientId}")
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<MedicalRecordResponseDTO>>> getPatientRecords(
+            @PathVariable Long patientId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        
+        org.springframework.data.domain.Page<MedicalRecordResponseDTO> records = medicalRecordService.getPatientRecords(patientId, page, size);
+        
+        ApiResponse<org.springframework.data.domain.Page<MedicalRecordResponseDTO>> response = ApiResponse.<org.springframework.data.domain.Page<MedicalRecordResponseDTO>>builder()
+                .status(HttpStatus.OK.value())
+                .message("Fetched patient medical records successfully")
+                .data(records)
+                .build();
+                
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}/diagnosis")
+    public ResponseEntity<ApiResponse<MedicalRecordResponseDTO>> updateDiagnosis(
+            @PathVariable Long id,
+            @RequestParam("description") String description) {
+        
+        MedicalRecordResponseDTO updatedRecord = medicalRecordService.updateDiagnosis(id, description);
+        
+        ApiResponse<MedicalRecordResponseDTO> response = ApiResponse.<MedicalRecordResponseDTO>builder()
+                .status(HttpStatus.OK.value())
+                .message("Diagnosis updated successfully")
+                .data(updatedRecord)
+                .build();
+                
+        return ResponseEntity.ok(response);
+    }
 }

@@ -43,14 +43,36 @@ public class MedicalRecordServiceImpl implements MedicalRecordService {
                 .build();
 
         MedicalRecord savedRecord = medicalRecordRepository.save(record);
+        return mapToDTO(savedRecord);
+    }
 
+    @Override
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<MedicalRecordResponseDTO> getPatientRecords(Long patientId, int page, int size) {
+        if (!userRepository.existsById(patientId)) {
+            throw new ResourceNotFoundException("Patient not found with id: " + patientId);
+        }
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, org.springframework.data.domain.Sort.by("uploadedAt").descending());
+        return medicalRecordRepository.findByPatientId(patientId, pageable).map(this::mapToDTO);
+    }
+
+    @Override
+    @Transactional
+    public MedicalRecordResponseDTO updateDiagnosis(Long id, String diagnosis) {
+        MedicalRecord record = medicalRecordRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Medical record not found with id: " + id));
+        record.setDescription(diagnosis);
+        return mapToDTO(medicalRecordRepository.save(record));
+    }
+
+    private MedicalRecordResponseDTO mapToDTO(MedicalRecord record) {
         return MedicalRecordResponseDTO.builder()
-                .id(savedRecord.getId())
-                .patientId(patient.getId())
-                .appointmentId(appointment.getId())
-                .filePath(savedRecord.getFilePath())
-                .description(savedRecord.getDescription())
-                .uploadedAt(savedRecord.getUploadedAt())
+                .id(record.getId())
+                .patientId(record.getPatient().getId())
+                .appointmentId(record.getAppointment().getId())
+                .filePath(record.getFilePath())
+                .description(record.getDescription())
+                .uploadedAt(record.getUploadedAt())
                 .build();
     }
 }

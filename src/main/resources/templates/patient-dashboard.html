@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Dashboard</title>
+    <link rel="stylesheet" th:href="@{/css/global.css}">
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div class="logo">HOSPITAL MANAGEMENT</div>
+        <div>
+            <span id="user-info" style="margin-right: 1rem; color: var(--text-muted); font-size: 0.875rem;"></span>
+            <button onclick="logout()" class="btn btn-outline" style="padding: 0.5rem 1rem; font-size: 0.75rem;">LOGOUT</button>
+        </div>
+    </div>
+
+    <div class="flex justify-between items-center mb-8">
+        <h2>PATIENT DASHBOARD</h2>
+        <button onclick="document.getElementById('booking-form-container').style.display='block'" class="btn">BOOK APPOINTMENT</button>
+    </div>
+
+    <div id="booking-form-container" class="mb-8" style="display: none; padding: 1rem; border: 1px solid var(--border-color); background: var(--surface);">
+        <h3>NEW APPOINTMENT</h3>
+        <form id="booking-form">
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" id="apt-date" required>
+            </div>
+            <div class="form-group">
+                <label>Time Slot</label>
+                <input type="text" id="apt-time" placeholder="e.g. 09:00 - 09:30" required>
+            </div>
+            <div class="form-group">
+                <label>Symptom Description</label>
+                <input type="text" id="apt-symptom">
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+                <button type="submit" class="btn">SUBMIT</button>
+                <button type="button" class="btn btn-outline" onclick="document.getElementById('booking-form-container').style.display='none'">CANCEL</button>
+            </div>
+        </form>
+    </div>
+
+    <div id="error-msg" class="alert alert-error" style="display: none;"></div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>DOCTOR</th>
+                    <th>DATE</th>
+                    <th>TIME</th>
+                    <th>REASON</th>
+                    <th>STATUS</th>
+                </tr>
+            </thead>
+            <tbody id="appointments-tbody">
+                <tr><td colspan="6" class="text-center">LOADING DATA...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h2 class="mt-4" style="margin-top: 3rem;">MEDICAL RECORDS</h2>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>DATE</th>
+                    <th>DIAGNOSIS / NOTES</th>
+                    <th>FILE</th>
+                </tr>
+            </thead>
+            <tbody id="records-tbody">
+                <tr><td colspan="4" class="text-center">LOADING DATA...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+if (!token) {
+    window.location.href = '/';
+}
+
+const payload = JSON.parse(atob(token.split('.')[1]));
+const userId = payload.userId;
+
+if (!userId) {
+    console.warn("Old token detected without userId. Forcing logout.");
+    localStorage.removeItem('token');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    window.location.href = '/';
+}
+
+document.getElementById('user-info').textContent = 'USER: ' + (payload.sub || payload.username || userId);
+
+async function loadData() {
+    const headers = { 'Authorization': 'Bearer ' + token };
+    const errDiv = document.getElementById('error-msg');
+    errDiv.style.display = 'none';
+
+    try {
+        // Load Appointments
+        const pid = userId; 
+
+        const aptRes = await fetch(`/api/v1/appointments/patient/${pid}`, { headers });
+        if (!aptRes.ok) {
+            if(aptRes.status === 403 || aptRes.status === 401) return logout();
+            throw new Error('Failed to load appointments');
+        }
+        const aptData = await aptRes.json();
+        const tbody = document.getElementById('appointments-tbody');
+        tbody.innerHTML = '';
+        
+        if (!aptData.data.content || aptData.data.content.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">NO APPOINTMENTS FOUND</td></tr>';
+        } else {
+            aptData.data.content.forEach(apt => {
+                const statusClass = apt.status.toLowerCase();
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${apt.id}</td>
+                        <td>Dr. ${apt.doctor ? apt.doctor.id : 'N/A'}</td>
+                        <td>${apt.date}</td>
+                        <td>${apt.timeSlot}</td>
+                        <td>${apt.symptomDescription || '-'}</td>
+                        <td><span class="status ${statusClass}">${apt.status}</span></td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Load Medical Records
+        const recRes = await fetch(`/api/v1/medical-records/patient/${pid}`, { headers });
+        if (recRes.ok) {
+            const recData = await recRes.json();
+            const rtbody = document.getElementById('records-tbody');
+            rtbody.innerHTML = '';
+            
+            if (!recData.data.content || recData.data.content.length === 0) {
+                rtbody.innerHTML = '<tr><td colspan="4" class="text-center">NO RECORDS FOUND</td></tr>';
+            } else {
+                recData.data.content.forEach(rec => {
+                    rtbody.innerHTML += `
+                        <tr>
+                            <td>${rec.id}</td>
+                            <td>${rec.uploadedAt ? new Date(rec.uploadedAt).toLocaleDateString() : '-'}</td>
+                            <td>${rec.description || 'No diagnosis yet'}</td>
+                            <td><a href="/uploads/${rec.filePath}" target="_blank" style="color:var(--accent);">VIEW FILE</a></td>
+                        </tr>
+                    `;
+                });
+            }
+        }
+        
+    } catch (err) {
+        errDiv.textContent = err.message;
+        errDiv.style.display = 'block';
+    }
+}
+
+document.getElementById('booking-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const date = document.getElementById('apt-date').value;
+    const timeSlot = document.getElementById('apt-time').value;
+    const symptomDescription = document.getElementById('apt-symptom').value;
+    
+    try {
+        const res = await fetch('/api/v1/appointments', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ patientId: userId, date, timeSlot, symptomDescription })
+        });
+        if(!res.ok) throw new Error("Failed to book appointment");
+        document.getElementById('booking-form-container').style.display = 'none';
+        document.getElementById('booking-form').reset();
+        loadData();
+    } catch (err) {
+        alert(err.message);
+    }
+});
+
+async function logout() {
+    try {
+        await fetch('/api/v1/auth/logout', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+    } catch(e) {}
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    window.location.href = '/';
+}
+
+loadData();
+</script>
+
+</body>
+</html>

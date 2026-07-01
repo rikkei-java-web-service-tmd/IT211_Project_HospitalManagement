@@ -46,6 +46,20 @@ public class AppointmentController {
         return ResponseEntity.ok(response);
     }
 
+    @org.springframework.web.bind.annotation.GetMapping
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<AppointmentResponseDTO>>> getAllAppointments(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "10") int size) {
+        
+        org.springframework.data.domain.Page<AppointmentResponseDTO> appointments = appointmentService.getAllAppointments(page, size);
+        ApiResponse<org.springframework.data.domain.Page<AppointmentResponseDTO>> response = ApiResponse.<org.springframework.data.domain.Page<AppointmentResponseDTO>>builder()
+                .status(HttpStatus.OK.value())
+                .message("All appointments retrieved successfully")
+                .data(appointments)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
     @org.springframework.web.bind.annotation.PutMapping("/{id}/status")
     public ResponseEntity<ApiResponse<AppointmentResponseDTO>> updateAppointmentStatus(
             @org.springframework.web.bind.annotation.PathVariable Long id,

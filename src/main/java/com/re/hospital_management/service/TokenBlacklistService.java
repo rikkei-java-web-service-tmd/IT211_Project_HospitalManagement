@@ -1,22 +1,27 @@
 package com.re.hospital_management.service;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.concurrent.TimeUnit;
+import java.util.Collections;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
-@RequiredArgsConstructor
 public class TokenBlacklistService {
 
-    private final StringRedisTemplate redisTemplate;
+    private final java.util.Map<String, Long> blacklistedTokens = new ConcurrentHashMap<>();
 
     public void blacklistToken(String token, long expirationMs) {
-        redisTemplate.opsForValue().set(token, "blacklisted", expirationMs, TimeUnit.MILLISECONDS);
+        blacklistedTokens.put(token, System.currentTimeMillis() + expirationMs);
     }
 
     public boolean isTokenBlacklisted(String token) {
-        return Boolean.TRUE.equals(redisTemplate.hasKey(token));
+        return blacklistedTokens.containsKey(token);
+    }
+
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 60000)
+    public void evictExpiredTokens() {
+        long now = System.currentTimeMillis();
+        blacklistedTokens.entrySet().removeIf(entry -> entry.getValue() < now);
     }
 }

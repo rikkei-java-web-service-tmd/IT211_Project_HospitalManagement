@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Dashboard</title>
+    <link rel="stylesheet" th:href="@{/css/global.css}">
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div class="logo">HOSPITAL MANAGEMENT</div>
+        <div>
+            <span id="user-info" style="margin-right: 1rem; color: var(--text-muted); font-size: 0.875rem;"></span>
+            <button onclick="logout()" class="btn btn-outline" style="padding: 0.5rem 1rem; font-size: 0.75rem;">LOGOUT</button>
+        </div>
+    </div>
+
+    <div class="flex justify-between items-center mb-8">
+        <h2>DOCTOR / ADMIN DASHBOARD</h2>
+        <button onclick="document.getElementById('upload-form-container').style.display='block'" class="btn">UPLOAD RECORD</button>
+    </div>
+
+    <div id="upload-form-container" class="mb-8" style="display: none; padding: 1rem; border: 1px solid var(--border-color); background: var(--surface);">
+        <h3>UPLOAD MEDICAL RECORD</h3>
+        <form id="upload-form">
+            <div class="form-group">
+                <label>Patient ID</label>
+                <input type="number" id="rec-patient" required>
+            </div>
+            <div class="form-group">
+                <label>Appointment ID</label>
+                <input type="number" id="rec-apt" required>
+            </div>
+            <div class="form-group">
+                <label>Diagnosis / Description</label>
+                <input type="text" id="rec-desc">
+            </div>
+            <div class="form-group">
+                <label>File (Image/PDF)</label>
+                <input type="file" id="rec-file" required>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+                <button type="submit" class="btn">UPLOAD</button>
+                <button type="button" class="btn btn-outline" onclick="document.getElementById('upload-form-container').style.display='none'">CANCEL</button>
+            </div>
+        </form>
+    </div>
+
+    <div id="error-msg" class="alert alert-error" style="display: none;"></div>
+
+    <h3>APPOINTMENT QUEUE</h3>
+    <div class="table-wrapper mb-8">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>PATIENT ID</th>
+                    <th>DATE & TIME</th>
+                    <th>STATUS</th>
+                    <th>ACTIONS</th>
+                </tr>
+            </thead>
+            <tbody id="appointments-tbody">
+                <tr><td colspan="5" class="text-center">LOADING DATA...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+if (!token) {
+    window.location.href = '/';
+}
+
+const payload = JSON.parse(atob(token.split('.')[1]));
+const userId = payload.userId;
+
+if (!userId) {
+    console.warn("Old token detected without userId. Forcing logout.");
+    localStorage.removeItem('token');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    window.location.href = '/';
+}
+
+document.getElementById('user-info').textContent = 'USER: ' + (payload.sub || payload.username || userId);
+
+async function loadData() {
+    const headers = { 'Authorization': 'Bearer ' + token };
+    const errDiv = document.getElementById('error-msg');
+    errDiv.style.display = 'none';
+
+    try {
+        const aptRes = await fetch(`/api/v1/appointments`, { headers });
+        if (!aptRes.ok) {
+            if(aptRes.status === 403 || aptRes.status === 401) return logout();
+            throw new Error('Failed to load appointments queue');
+        }
+        const aptData = await aptRes.json();
+        const tbody = document.getElementById('appointments-tbody');
+        tbody.innerHTML = '';
+        
+        if (!aptData.data.content || aptData.data.content.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">NO APPOINTMENTS FOUND</td></tr>';
+        } else {
+            aptData.data.content.forEach(apt => {
+                const statusClass = apt.status.toLowerCase();
+                let actions = '-';
+                if (apt.status === 'PENDING') {
+                    actions = `
+                        <button class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="updateStatus(${apt.id}, 'APPROVED')">APPROVE</button>
+                        <button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="updateStatus(${apt.id}, 'CANCELLED')">REJECT</button>
+                    `;
+                } else if (apt.status === 'APPROVED') {
+                    actions = `
+                        <button class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; border-color:var(--accent); color:var(--accent);" onclick="updateStatus(${apt.id}, 'COMPLETED')">MARK COMPLETED</button>
+                    `;
+                }
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${apt.id}</td>
+                        <td>${apt.patient ? apt.patient.id : 'N/A'}</td>
+                        <td>${apt.date} ${apt.timeSlot}</td>
+                        <td><span class="status ${statusClass}">${apt.status}</span></td>
+                        <td style="display: flex; gap: 0.5rem;">${actions}</td>
+                    </tr>
+                `;
+            });
+        }
+    } catch (err) {
+        errDiv.textContent = err.message;
+        errDiv.style.display = 'block';
+    }
+}
+
+document.getElementById('upload-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const patientId = document.getElementById('rec-patient').value;
+    const appointmentId = document.getElementById('rec-apt').value;
+    const description = document.getElementById('rec-desc').value;
+    const file = document.getElementById('rec-file').files[0];
+
+    const formData = new FormData();
+    formData.append('patientId', patientId);
+    formData.append('appointmentId', appointmentId);
+    if(description) formData.append('description', description);
+    formData.append('file', file);
+
+    try {
+        const res = await fetch('/api/v1/medical-records/upload', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token },
+            body: formData
+        });
+        if(!res.ok) throw new Error("Upload failed");
+        alert("Upload successful!");
+        document.getElementById('upload-form-container').style.display = 'none';
+        document.getElementById('upload-form').reset();
+    } catch (err) {
+        alert(err.message);
+    }
+});
+
+async function updateStatus(id, newStatus) {
+    if(!confirm(`Change status to ${newStatus}?`)) return;
+    try {
+        await fetch(`/api/v1/appointments/${id}/status?status=${newStatus}`, {
+            method: 'PUT',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        loadData();
+    } catch(e) {
+        alert('Update failed');
+    }
+}
+
+async function logout() {
+    try {
+        await fetch('/api/v1/auth/logout', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+    } catch(e) {}
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    window.location.href = '/';
+}
+
+loadData();
+</script>
+
+</body>
+</html>

@@ -31,10 +31,10 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final com.re.hospital_management.service.TokenBlacklistService tokenBlacklistService;
 
-    @Value("${app.jwt.refresh-expiration-ms:86400000}") // 24 hours
+    @Value("${app.jwt.refresh-expiration-ms:86400000}")
     private Long refreshTokenDurationMs;
 
-    @Value("${app.jwt.expiration-ms:3600000}") // 1 hour
+    @Value("${app.jwt.expiration-ms:3600000}")
     private Long jwtExpirationMs;
 
     @Override
@@ -45,10 +45,11 @@ public class AuthServiceImpl implements AuthService {
         );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = tokenProvider.generateToken(loginRequest.getUsername());
 
         User user = userRepository.findByUsername(loginRequest.getUsername())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        String jwt = tokenProvider.generateToken(loginRequest.getUsername(), user.getId(), user.getRole().name());
 
         RefreshToken refreshToken = createRefreshToken(user);
 
@@ -67,7 +68,7 @@ public class AuthServiceImpl implements AuthService {
                 .map(this::verifyExpiration)
                 .map(RefreshToken::getUser)
                 .map(user -> {
-                    String token = tokenProvider.generateToken(user.getUsername());
+                    String token = tokenProvider.generateToken(user.getUsername(), user.getId(), user.getRole().name());
                     return JwtAuthResponseDTO.builder()
                             .accessToken(token)
                             .refreshToken(requestRefreshToken)
@@ -88,7 +89,8 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private RefreshToken createRefreshToken(User user) {
-        refreshTokenRepository.deleteByUser(user); // Invalidating old refresh tokens on new login
+        refreshTokenRepository.deleteByUser(user);
+        refreshTokenRepository.flush();
 
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)

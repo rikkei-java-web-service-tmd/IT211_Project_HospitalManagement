@@ -47,6 +47,13 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     @Override
+    public org.springframework.data.domain.Page<AppointmentResponseDTO> getAllAppointments(int page, int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, org.springframework.data.domain.Sort.by("date").descending());
+        org.springframework.data.domain.Page<Appointment> appointments = appointmentRepository.findAll(pageable);
+        return appointments.map(this::mapToDTO);
+    }
+
+    @Override
     public AppointmentResponseDTO updateAppointmentStatus(Long id, com.re.hospital_management.dto.AppointmentStatusUpdateDTO updateDTO) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment not found with id: " + id));

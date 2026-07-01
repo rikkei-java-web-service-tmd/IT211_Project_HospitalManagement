@@ -14,19 +14,21 @@ public class JwtTokenProvider {
     @Value("${app.jwt.secret:ThisIsASecretKeyForJwtAuthenticationThatMustBeAtLeast32BytesLong}")
     private String jwtSecret;
 
-    @Value("${app.jwt.expiration-ms:3600000}") // 1 hour
+    @Value("${app.jwt.expiration-ms:3600000}")
     private int jwtExpirationMs;
 
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
 
-    public String generateToken(String username) {
+    public String generateToken(String username, Long userId, String role) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
         return Jwts.builder()
                 .setSubject(username)
+                .claim("userId", userId)
+                .claim("role", role)
                 .setIssuedAt(new Date())
                 .setExpiration(expiryDate)
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -47,7 +49,6 @@ public class JwtTokenProvider {
             Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(authToken);
             return true;
         } catch (JwtException | IllegalArgumentException ex) {
-            // Token is invalid
             return false;
         }
     }

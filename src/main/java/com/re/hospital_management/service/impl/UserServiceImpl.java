@@ -43,8 +43,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserResponseDTO createUser(UserRegisterDTO createDTO) {
-        // Can be used by Admin to create doctors or other roles later
-        return registerPatient(createDTO); // Simplified for Day 1
+        return registerPatient(createDTO);
     }
 
     @Override

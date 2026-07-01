@@ -8,5 +8,6 @@ import org.springframework.data.domain.Page;
 public interface AppointmentService {
     AppointmentResponseDTO bookAppointment(AppointmentCreateDTO createDTO);
     Page<AppointmentResponseDTO> getPatientAppointments(Long patientId, int page, int size);
+    Page<AppointmentResponseDTO> getAllAppointments(int page, int size);
     AppointmentResponseDTO updateAppointmentStatus(Long id, com.re.hospital_management.dto.AppointmentStatusUpdateDTO updateDTO);
 }
